@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Ping Pong ELO Rankings</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Minimal Header -->
+    <header class="navbar">
+        <div class="navbar-container">
+            <div class="brand">
+                <span class="brand-icon">🏓</span>
+                <span class="brand-title">Ping Pong ELO</span>
+            </div>
+            <div class="navbar-actions">
+                <button type="button" id="refreshBtn" class="btn btn-sync">
+                    <span class="sync-icon">🔄</span> Sync Sheet
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Status Notification Banner -->
+        <div id="statusBanner" class="status-banner" style="display: none;"></div>
+
+        <!-- Stats Overview Row -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Active Players</span>
+                <span id="statTotalPlayers" class="stat-value">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Total Matches</span>
+                <span id="statTotalMatches" class="stat-value">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">#1 Top Rated</span>
+                <span id="statTopPlayer" class="stat-value">Loading...</span>
+            </div>
+        </section>
+
+        <!-- Record Match Form Card -->
+        <section class="card match-form-card">
+            <div class="card-header">
+                <h2>Record Best of 3 Match</h2>
+                <span class="badge-subtle">Sheet Auto-Sync</span>
+            </div>
+
+            <form id="recordMatchForm" class="match-input-form">
+                <!-- Date & Players Row -->
+                <div class="form-grid-top">
+                    <div class="form-group date-group">
+                        <label for="matchDate">Date</label>
+                        <input type="text" id="matchDate" class="input-field" placeholder="e.g. 10/7" required>
+                    </div>
+                    <div class="form-group player-group">
+                        <label for="matchP1">Player 1</label>
+                        <select id="matchP1" class="select-field" required>
+                            <option value="">Select Player 1...</option>
+                        </select>
+                    </div>
+                    <div class="vs-badge">VS</div>
+                    <div class="form-group player-group">
+                        <label for="matchP2">Player 2</label>
+                        <select id="matchP2" class="select-field" required>
+                            <option value="">Select Player 2...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Game Scores Grid -->
+                <div class="games-section">
+                    <div class="games-grid">
+                        <!-- Game 1 -->
+                        <div class="game-box">
+                            <span class="game-title">Game 1</span>
+                            <div class="score-pair">
+                                <div class="score-field">
+                                    <span class="player-tag p1-tag">P1</span>
+                                    <input type="number" id="g1p1" min="0" max="99" placeholder="0" required class="score-input">
+                                </div>
+                                <span class="score-sep">-</span>
+                                <div class="score-field">
+                                    <span class="player-tag p2-tag">P2</span>
+                                    <input type="number" id="g1p2" min="0" max="99" placeholder="0" required class="score-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Game 2 -->
+                        <div class="game-box">
+                            <span class="game-title">Game 2</span>
+                            <div class="score-pair">
+                                <div class="score-field">
+                                    <span class="player-tag p1-tag">P1</span>
+                                    <input type="number" id="g2p1" min="0" max="99" placeholder="0" required class="score-input">
+                                </div>
+                                <span class="score-sep">-</span>
+                                <div class="score-field">
+                                    <span class="player-tag p2-tag">P2</span>
+                                    <input type="number" id="g2p2" min="0" max="99" placeholder="0" required class="score-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Game 3 (Enabled if tied 1-1) -->
+                        <div class="game-box" id="game3Box">
+                            <span class="game-title">Game 3 <small>(Tiebreaker)</small></span>
+                            <div class="score-pair">
+                                <div class="score-field">
+                                    <span class="player-tag p1-tag">P1</span>
+                                    <input type="number" id="g3p1" min="0" max="99" placeholder="0" disabled class="score-input">
+                                </div>
+                                <span class="score-sep">-</span>
+                                <div class="score-field">
+                                    <span class="player-tag p2-tag">P2</span>
+                                    <input type="number" id="g3p2" min="0" max="99" placeholder="0" disabled class="score-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Outcome Preview -->
+                <div id="matchPreviewBox" class="match-preview-box" style="display: none;">
+                    <span id="previewText"></span>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Submit Match</button>
+                    <button type="reset" id="resetMatchFormBtn" class="btn btn-ghost">Clear</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Main Content Grid -->
+        <div class="content-grid">
+            <!-- Leaderboard Section -->
+            <section class="card leaderboard-card">
+                <div class="table-header">
+                    <h2>Player Leaderboard</h2>
+                    <div class="table-controls">
+                        <input type="text" id="searchInput" class="input-search" placeholder="Search player...">
+                        <select id="sortSelect" class="select-sort">
+                            <option value="elo">Sort: ELO</option>
+                            <option value="wins">Sort: Wins</option>
+                            <option value="winrate">Sort: Win %</option>
+                            <option value="name">Sort: Name</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Player</th>
+                                <th>ELO</th>
+                                <th>Record</th>
+                                <th>Win %</th>
+                                <th>Form</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardBody">
+                            <!-- Populated dynamically by app.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Match Feed Sidebar -->
+            <section class="card match-feed-card">
+                <div class="card-header">
+                    <h2>Recent Matches</h2>
+                </div>
+                <div id="matchHistoryList" class="match-list">
+                    <!-- Populated dynamically by app.js -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>Club Ping Pong ELO &bull; <a href="https://venkykanniganti.com" target="_blank">venkykanniganti.com</a></p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
