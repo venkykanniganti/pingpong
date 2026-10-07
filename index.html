@@ -49,7 +49,10 @@
         <!-- Record Match Form Card -->
         <section class="card match-form-card">
             <div class="card-header">
-                <h2>Record Best of 3 Match</h2>
+                <div>
+                    <h2>Record Best of 3 Match</h2>
+                    <p class="card-subtitle">Log match results to update player ELO ratings in real time</p>
+                </div>
                 <span class="badge-subtle">Sheet Auto-Sync</span>
             </div>
 
@@ -57,19 +60,19 @@
                 <!-- Date & Players Row -->
                 <div class="form-grid-top">
                     <div class="form-group date-group">
-                        <label for="matchDate">Date</label>
-                        <input type="text" id="matchDate" class="input-field" placeholder="e.g. 10/7" required>
+                        <label for="matchDate">Match Date</label>
+                        <input type="text" id="matchDate" class="input-field input-lg" placeholder="e.g. 10/7" required>
                     </div>
                     <div class="form-group player-group">
                         <label for="matchP1">Player 1</label>
-                        <select id="matchP1" class="select-field" required>
+                        <select id="matchP1" class="select-field input-lg" required>
                             <option value="">Select Player 1...</option>
                         </select>
                     </div>
                     <div class="vs-badge">VS</div>
                     <div class="form-group player-group">
                         <label for="matchP2">Player 2</label>
-                        <select id="matchP2" class="select-field" required>
+                        <select id="matchP2" class="select-field input-lg" required>
                             <option value="">Select Player 2...</option>
                         </select>
                     </div>
@@ -77,6 +80,10 @@
 
                 <!-- Game Scores Grid -->
                 <div class="games-section">
+                    <div class="games-header">
+                        <span class="games-section-title">Game Scores (Best of 3)</span>
+                        <span class="games-hint">First to win 2 games wins the match</span>
+                    </div>
                     <div class="games-grid">
                         <!-- Game 1 -->
                         <div class="game-box">
@@ -84,12 +91,12 @@
                             <div class="score-pair">
                                 <div class="score-field">
                                     <span class="player-tag p1-tag">P1</span>
-                                    <input type="number" id="g1p1" min="0" max="99" placeholder="0" required class="score-input">
+                                    <input type="number" id="g1p1" min="0" max="99" placeholder="0" required class="score-input input-score-lg">
                                 </div>
                                 <span class="score-sep">-</span>
                                 <div class="score-field">
                                     <span class="player-tag p2-tag">P2</span>
-                                    <input type="number" id="g1p2" min="0" max="99" placeholder="0" required class="score-input">
+                                    <input type="number" id="g1p2" min="0" max="99" placeholder="0" required class="score-input input-score-lg">
                                 </div>
                             </div>
                         </div>
@@ -100,12 +107,12 @@
                             <div class="score-pair">
                                 <div class="score-field">
                                     <span class="player-tag p1-tag">P1</span>
-                                    <input type="number" id="g2p1" min="0" max="99" placeholder="0" required class="score-input">
+                                    <input type="number" id="g2p1" min="0" max="99" placeholder="0" required class="score-input input-score-lg">
                                 </div>
                                 <span class="score-sep">-</span>
                                 <div class="score-field">
                                     <span class="player-tag p2-tag">P2</span>
-                                    <input type="number" id="g2p2" min="0" max="99" placeholder="0" required class="score-input">
+                                    <input type="number" id="g2p2" min="0" max="99" placeholder="0" required class="score-input input-score-lg">
                                 </div>
                             </div>
                         </div>
@@ -116,12 +123,12 @@
                             <div class="score-pair">
                                 <div class="score-field">
                                     <span class="player-tag p1-tag">P1</span>
-                                    <input type="number" id="g3p1" min="0" max="99" placeholder="0" disabled class="score-input">
+                                    <input type="number" id="g3p1" min="0" max="99" placeholder="0" disabled class="score-input input-score-lg">
                                 </div>
                                 <span class="score-sep">-</span>
                                 <div class="score-field">
                                     <span class="player-tag p2-tag">P2</span>
-                                    <input type="number" id="g3p2" min="0" max="99" placeholder="0" disabled class="score-input">
+                                    <input type="number" id="g3p2" min="0" max="99" placeholder="0" disabled class="score-input input-score-lg">
                                 </div>
                             </div>
                         </div>
@@ -134,8 +141,10 @@
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Submit Match</button>
-                    <button type="reset" id="resetMatchFormBtn" class="btn btn-ghost">Clear</button>
+                    <button type="submit" class="btn btn-primary btn-submit-lg">
+                        <span>Submit Match Result</span> ➔
+                    </button>
+                    <button type="reset" id="resetMatchFormBtn" class="btn btn-ghost btn-lg">Clear Form</button>
                 </div>
             </form>
         </section>
@@ -147,12 +156,12 @@
                 <div class="table-header">
                     <h2>Player Leaderboard</h2>
                     <div class="table-controls">
-                        <input type="text" id="searchInput" class="input-search" placeholder="Search player...">
-                        <select id="sortSelect" class="select-sort">
-                            <option value="elo">Sort: ELO</option>
-                            <option value="wins">Sort: Wins</option>
-                            <option value="winrate">Sort: Win %</option>
-                            <option value="name">Sort: Name</option>
+                        <input type="text" id="searchInput" class="input-search input-search-lg" placeholder="Search player name...">
+                        <select id="sortSelect" class="select-sort select-sort-lg">
+                            <option value="elo">Sort: ELO Rating</option>
+                            <option value="wins">Sort: Total Wins</option>
+                            <option value="winrate">Sort: Win Rate %</option>
+                            <option value="name">Sort: Player Name</option>
                         </select>
                     </div>
                 </div>
