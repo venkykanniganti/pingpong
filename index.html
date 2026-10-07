@@ -3,26 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Club Ping Pong ELO Rankings</title>
+    <title>UCCOM Ping Pong</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <!-- Minimal Header -->
-    <header class="navbar">
-        <div class="navbar-container">
-            <div class="brand">
-                <span class="brand-icon">🏓</span>
-                <span class="brand-title">Ping Pong ELO</span>
-            </div>
-            <div class="navbar-actions">
-                <button type="button" id="refreshBtn" class="btn btn-sync">
-                    <span class="sync-icon">🔄</span> Sync Sheet
-                </button>
-            </div>
+    <!-- Hero Header -->
+    <header class="hero">
+        <div class="hero-content">
+            <div class="logo-icon">🏓</div>
+            <h1>Club Ping Pong ELO</h1>
+            <p>Official Player Rankings & Match Ratings</p>
         </div>
     </header>
 
@@ -30,123 +24,55 @@
         <!-- Status Notification Banner -->
         <div id="statusBanner" class="status-banner" style="display: none;"></div>
 
-        <!-- Stats Overview Row -->
+        <!-- Stats Overview Cards -->
         <section class="stats-grid">
             <div class="stat-card">
-                <span class="stat-label">Active Players</span>
-                <span id="statTotalPlayers" class="stat-value">0</span>
+                <span class="stat-icon">👥</span>
+                <div class="stat-info">
+                    <span class="stat-label">Active Players</span>
+                    <span id="statTotalPlayers" class="stat-value">0</span>
+                </div>
             </div>
             <div class="stat-card">
-                <span class="stat-label">Total Matches</span>
-                <span id="statTotalMatches" class="stat-value">0</span>
+                <span class="stat-icon">⚔️</span>
+                <div class="stat-info">
+                    <span class="stat-label">Total Matches</span>
+                    <span id="statTotalMatches" class="stat-value">0</span>
+                </div>
             </div>
             <div class="stat-card">
-                <span class="stat-label">#1 Top Rated</span>
-                <span id="statTopPlayer" class="stat-value">Loading...</span>
+                <span class="stat-icon">👑</span>
+                <div class="stat-info">
+                    <span class="stat-label">#1 Top Rated</span>
+                    <span id="statTopPlayer" class="stat-value">Loading...</span>
+                </div>
             </div>
         </section>
 
-        <!-- Record Match Form Card -->
-        <section class="card match-form-card">
-            <div class="card-header">
-                <div>
-                    <h2>Record Best of 3 Match</h2>
-                    <p class="card-subtitle">Log match results to update player ELO ratings in real time</p>
-                </div>
-                <span class="badge-subtle">Sheet Auto-Sync</span>
+        <!-- Google Sheet Integration Bar -->
+        <section class="card config-card">
+            <div class="config-header">
+                <h3>🔗 Google Sheet Integration</h3>
+                <button id="toggleInstructionsBtn" class="btn-text" onclick="document.getElementById('instructionsPanel').classList.toggle('open')">
+                    How to connect your sheet? ℹ️
+                </button>
             </div>
-
-            <form id="recordMatchForm" class="match-input-form">
-                <!-- Date & Players Row -->
-                <div class="form-grid-top">
-                    <div class="form-group date-group">
-                        <label for="matchDate">Match Date</label>
-                        <input type="text" id="matchDate" class="input-field input-lg" placeholder="e.g. 10/7" required>
-                    </div>
-                    <div class="form-group player-group">
-                        <label for="matchP1">Player 1</label>
-                        <select id="matchP1" class="select-field input-lg" required>
-                            <option value="">Select Player 1...</option>
-                        </select>
-                    </div>
-                    <div class="vs-badge">VS</div>
-                    <div class="form-group player-group">
-                        <label for="matchP2">Player 2</label>
-                        <select id="matchP2" class="select-field input-lg" required>
-                            <option value="">Select Player 2...</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Game Scores Grid -->
-                <div class="games-section">
-                    <div class="games-header">
-                        <span class="games-section-title">Game Scores (Best of 3)</span>
-                        <span class="games-hint">First to win 2 games wins the match</span>
-                    </div>
-                    <div class="games-grid">
-                        <!-- Game 1 -->
-                        <div class="game-box">
-                            <span class="game-title">Game 1</span>
-                            <div class="score-pair">
-                                <div class="score-field">
-                                    <span class="player-tag p1-tag">P1</span>
-                                    <input type="number" id="g1p1" min="0" max="99" placeholder="0" required class="score-input input-score-lg">
-                                </div>
-                                <span class="score-sep">-</span>
-                                <div class="score-field">
-                                    <span class="player-tag p2-tag">P2</span>
-                                    <input type="number" id="g1p2" min="0" max="99" placeholder="0" required class="score-input input-score-lg">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Game 2 -->
-                        <div class="game-box">
-                            <span class="game-title">Game 2</span>
-                            <div class="score-pair">
-                                <div class="score-field">
-                                    <span class="player-tag p1-tag">P1</span>
-                                    <input type="number" id="g2p1" min="0" max="99" placeholder="0" required class="score-input input-score-lg">
-                                </div>
-                                <span class="score-sep">-</span>
-                                <div class="score-field">
-                                    <span class="player-tag p2-tag">P2</span>
-                                    <input type="number" id="g2p2" min="0" max="99" placeholder="0" required class="score-input input-score-lg">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Game 3 (Enabled if tied 1-1) -->
-                        <div class="game-box" id="game3Box">
-                            <span class="game-title">Game 3 <small>(Tiebreaker)</small></span>
-                            <div class="score-pair">
-                                <div class="score-field">
-                                    <span class="player-tag p1-tag">P1</span>
-                                    <input type="number" id="g3p1" min="0" max="99" placeholder="0" disabled class="score-input input-score-lg">
-                                </div>
-                                <span class="score-sep">-</span>
-                                <div class="score-field">
-                                    <span class="player-tag p2-tag">P2</span>
-                                    <input type="number" id="g3p2" min="0" max="99" placeholder="0" disabled class="score-input input-score-lg">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Dynamic Outcome Preview -->
-                <div id="matchPreviewBox" class="match-preview-box" style="display: none;">
-                    <span id="previewText"></span>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary btn-submit-lg">
-                        <span>Submit Match Result</span> ➔
-                    </button>
-                    <button type="reset" id="resetMatchFormBtn" class="btn btn-ghost btn-lg">Clear Form</button>
-                </div>
+            <form id="connectForm" class="connect-form">
+                <input type="url" id="sheetUrlInput" class="input-url" placeholder="Paste Published CSV URL or Apps Script Endpoint..." autocomplete="off">
+                <button type="submit" class="btn btn-primary">Connect Sheet</button>
+                <button type="button" id="refreshBtn" class="btn btn-secondary">Sync Now</button>
             </form>
+
+            <div id="instructionsPanel" class="instructions-panel">
+                <h4>Option A: Publish as CSV (Easiest)</h4>
+                <ol>
+                    <li>In Google Sheets, go to <strong>File &gt; Share &gt; Publish to web</strong>.</li>
+                    <li>Select the worksheet with player ratings, change format to <strong>Comma-separated values (.csv)</strong>.</li>
+                    <li>Click <strong>Publish</strong>, copy the generated URL link, and paste it into the field above.</li>
+                </ol>
+                <h4>Option B: Google Apps Script Endpoint</h4>
+                <p>Attach a small <code>doGet()</code> script returning JSON from your Spreadsheet web app URL.</p>
+            </div>
         </section>
 
         <!-- Main Content Grid -->
@@ -154,14 +80,14 @@
             <!-- Leaderboard Section -->
             <section class="card leaderboard-card">
                 <div class="table-header">
-                    <h2>Player Leaderboard</h2>
+                    <h2>🏆 Player Leaderboard</h2>
                     <div class="table-controls">
-                        <input type="text" id="searchInput" class="input-search input-search-lg" placeholder="Search player name...">
-                        <select id="sortSelect" class="select-sort select-sort-lg">
-                            <option value="elo">Sort: ELO Rating</option>
-                            <option value="wins">Sort: Total Wins</option>
-                            <option value="winrate">Sort: Win Rate %</option>
-                            <option value="name">Sort: Player Name</option>
+                        <input type="text" id="searchInput" class="input-search" placeholder="Search player name...">
+                        <select id="sortSelect" class="select-sort">
+                            <option value="elo">Sort by ELO</option>
+                            <option value="wins">Sort by Wins</option>
+                            <option value="winrate">Sort by Win Rate</option>
+                            <option value="name">Sort by Name</option>
                         </select>
                     </div>
                 </div>
@@ -172,10 +98,10 @@
                             <tr>
                                 <th>Rank</th>
                                 <th>Player</th>
-                                <th>ELO</th>
+                                <th>ELO Rating</th>
                                 <th>Record</th>
-                                <th>Win %</th>
-                                <th>Form</th>
+                                <th>Win Rate</th>
+                                <th>Recent Form</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboardBody">
@@ -187,9 +113,7 @@
 
             <!-- Match Feed Sidebar -->
             <section class="card match-feed-card">
-                <div class="card-header">
-                    <h2>Recent Matches</h2>
-                </div>
+                <h2>⚡ Recent Matches</h2>
                 <div id="matchHistoryList" class="match-list">
                     <!-- Populated dynamically by app.js -->
                 </div>
@@ -198,7 +122,7 @@
     </main>
 
     <footer class="footer">
-        <p>Club Ping Pong ELO &bull; <a href="https://venkykanniganti.com" target="_blank">venkykanniganti.com</a></p>
+        <p>Club Ping Pong ELO System &bull; Powered by <a href="https://venkykanniganti.com" target="_blank">venkykanniganti.com</a></p>
     </footer>
 
     <script src="app.js"></script>

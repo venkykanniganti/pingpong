@@ -1,20 +1,17 @@
 /**
  * Club Ping Pong ELO Leaderboard Application
- * Permanently linked to Google Spreadsheet:
- * https://docs.google.com/spreadsheets/d/e/2PACX-1vTlXSqdP61ab-ZPfFTBAgiB-BYZ-Pi9vBiJPfCJMybt7pYu2ZwPArH0hinsekARYgO3bTcuyeLCdbGM/pubhtml
+ * Integrated with Live Google Spreadsheet:
+ * Ratings Sheet (gid=1691595355) & Match Log Sheet (gid=0)
  */
 
-const PERMANENT_SPREADSHEET_ID = "2PACX-1vTlXSqdP61ab-ZPfFTBAgiB-BYZ-Pi9vBiJPfCJMybt7pYu2ZwPArH0hinsekARYgO3bTcuyeLCdbGM";
+const DEFAULT_SPREADSHEET_ID = "2PACX-1vTlXSqdP61ab-ZPfFTBAgiB-BYZ-Pi9vBiJPfCJMybt7pYu2ZwPArH0hinsekARYgO3bTcuyeLCdbGM";
 const RATINGS_GID = "1691595355";
 const MATCH_LOG_GID = "0";
 
-// Server API Endpoint
-const API_BASE_URL = window.location.origin.includes('http') ? window.location.origin : 'http://localhost:3000';
-
 // App State
 let players = [];
-let sheetMatches = [];
-let pendingServerMatches = [];
+let matches = [];
+let currentSpreadsheetId = localStorage.getItem("pingpong_sheet_id") || DEFAULT_SPREADSHEET_ID;
 
 document.addEventListener("DOMContentLoaded", () => {
     initApp();
@@ -22,12 +19,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function initApp() {
     setupEventListeners();
-    setupMatchForm();
-    loadLiveSpreadsheet();
+    const sheetInput = document.getElementById("sheetUrlInput");
+    if (sheetInput) {
+        sheetInput.value = getPubHtmlUrl(currentSpreadsheetId);
+    }
+    loadLiveSpreadsheet(currentSpreadsheetId);
+}
+
+function getPubHtmlUrl(sheetId) {
+    return `https://docs.google.com/spreadsheets/d/e/${sheetId}/pubhtml`;
 }
 
 function getCsvUrl(sheetId, gid) {
     return `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?single=true&output=csv&gid=${gid}`;
+}
+
+function extractSpreadsheetId(inputUrl) {
+    if (!inputUrl) return DEFAULT_SPREADSHEET_ID;
+    
+    // Match /d/e/ID/ or /d/ID/ or raw ID
+    const matchE = inputUrl.match(/\/d\/e\/([a-zA-Z0-9-_]+)/);
+    if (matchE && matchE[1]) return matchE[1];
+    
+    const matchStandard = inputUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (matchStandard && matchStandard[1]) return matchStandard[1];
+
+    if (inputUrl.length > 20 && !inputUrl.includes("/")) {
+        return inputUrl;
+    }
+    
+    return DEFAULT_SPREADSHEET_ID;
 }
 
 function setupEventListeners() {
@@ -43,27 +64,40 @@ function setupEventListeners() {
         sortSelect.addEventListener("change", handleSearchAndFilter);
     }
 
-    // Sync Sheet Button
+    // Connect Sheet Form
+    const connectForm = document.getElementById("connectForm");
+    if (connectForm) {
+        connectForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const inputVal = document.getElementById("sheetUrlInput").value.trim();
+            const newId = extractSpreadsheetId(inputVal);
+            
+            currentSpreadsheetId = newId;
+            localStorage.setItem("pingpong_sheet_id", currentSpreadsheetId);
+            loadLiveSpreadsheet(currentSpreadsheetId);
+        });
+    }
+
+    // Refresh Button
     const refreshBtn = document.getElementById("refreshBtn");
     if (refreshBtn) {
         refreshBtn.addEventListener("click", () => {
-            loadLiveSpreadsheet();
+            loadLiveSpreadsheet(currentSpreadsheetId);
         });
     }
 }
 
-// Fetch and sync live ratings & matches
-async function loadLiveSpreadsheet() {
-    showStatus("Syncing with Google Spreadsheet...", "info");
+// Fetch and sync both Ratings & Match Log sheets
+async function loadLiveSpreadsheet(sheetId) {
+    showStatus("Syncing live Ratings & Match Log from Google Sheets...", "info");
 
-    const ratingsCsvUrl = getCsvUrl(PERMANENT_SPREADSHEET_ID, RATINGS_GID);
-    const matchLogCsvUrl = getCsvUrl(PERMANENT_SPREADSHEET_ID, MATCH_LOG_GID);
+    const ratingsCsvUrl = getCsvUrl(sheetId, RATINGS_GID);
+    const matchLogCsvUrl = getCsvUrl(sheetId, MATCH_LOG_GID);
 
     try {
-        const [ratingsRes, matchLogRes, serverMatchesData] = await Promise.all([
+        const [ratingsRes, matchLogRes] = await Promise.all([
             fetch(ratingsCsvUrl),
-            fetch(matchLogCsvUrl),
-            fetchServerMatches()
+            fetch(matchLogCsvUrl)
         ]);
 
         if (!ratingsRes.ok || !matchLogRes.ok) {
@@ -73,321 +107,23 @@ async function loadLiveSpreadsheet() {
         const ratingsCsvText = await ratingsRes.text();
         const matchLogCsvText = await matchLogRes.text();
 
-        sheetMatches = parseMatchLogCsv(matchLogCsvText);
+        const rawMatches = parseMatchLogCsv(matchLogCsvText);
+        matches = rawMatches;
+
         const rawPlayers = parseRatingsCsv(ratingsCsvText);
+        
+        // Enrich players with wins, losses, and form from match log
+        players = enrichPlayersWithStats(rawPlayers, rawMatches);
 
-        pendingServerMatches = serverMatchesData || [];
-
-        // Deduplication & Reconciliation
-        reconcileServerMatchesWithSheet(sheetMatches);
-
-        const unloggedMatches = pendingServerMatches.filter(m => m.status === 'unlogged');
-        const combinedMatches = [...sheetMatches, ...unloggedMatches];
-
-        players = enrichPlayersWithStats(rawPlayers, combinedMatches);
-
-        populatePlayerDropdowns(players);
         updateUI();
-
-        showStatus(`Synced live data! ${players.length} players & ${sheetMatches.length} recorded matches.`, "success");
+        showStatus(`Synced live data! Loaded ${players.length} players & ${matches.length} recorded matches.`, "success");
     } catch (err) {
-        console.error("Error syncing data:", err);
-        showStatus(`Unable to sync spreadsheet: ${err.message}`, "error");
+        console.error("Error syncing Google Sheet:", err);
+        showStatus(`Failed to fetch Google Sheet: ${err.message}. Please check sheet publication settings.`, "error");
     }
 }
 
-async function fetchServerMatches() {
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/matches`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.success && Array.isArray(data.matches)) {
-                return data.matches;
-            }
-        }
-    } catch (e) {
-        console.warn("Backend API offline, using localStorage fallback:", e);
-    }
-
-    const local = localStorage.getItem("pingpong_server_matches");
-    return local ? JSON.parse(local) : [];
-}
-
-async function saveServerMatches(matchesList) {
-    localStorage.setItem("pingpong_server_matches", JSON.stringify(matchesList));
-}
-
-async function reconcileServerMatchesWithSheet(sheetMatchesList) {
-    let newlyLoggedCount = 0;
-
-    pendingServerMatches.forEach(sm => {
-        if (sm.status === 'unlogged') {
-            const foundInSheet = sheetMatchesList.some(gm => {
-                const sameWinner = gm.winner.toLowerCase() === sm.winner.toLowerCase();
-                const sameLoser = gm.loser.toLowerCase() === sm.loser.toLowerCase();
-                const sameDate = !gm.date || !sm.date || gm.date === sm.date;
-                return sameWinner && sameLoser && sameDate;
-            });
-
-            if (foundInSheet) {
-                sm.status = 'logged';
-                sm.loggedAt = new Date().toISOString();
-                newlyLoggedCount++;
-            }
-        }
-    });
-
-    if (newlyLoggedCount > 0) {
-        saveServerMatches(pendingServerMatches);
-
-        try {
-            await fetch(`${API_BASE_URL}/api/matches/reconcile`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sheetMatches: sheetMatchesList })
-            });
-        } catch (e) {
-            // ignore API offline errors
-        }
-
-        showStatus(`Reconciled ${newlyLoggedCount} match(es) from Google Sheet!`, "success");
-    }
-}
-
-// Setup Record Match (Best of 3) Form
-function setupMatchForm() {
-    const matchForm = document.getElementById("recordMatchForm");
-    const dateInput = document.getElementById("matchDate");
-    const g1p1 = document.getElementById("g1p1");
-    const g1p2 = document.getElementById("g1p2");
-    const g2p1 = document.getElementById("g2p1");
-    const g2p2 = document.getElementById("g2p2");
-    const g3p1 = document.getElementById("g3p1");
-    const g3p2 = document.getElementById("g3p2");
-    const p1Select = document.getElementById("matchP1");
-    const p2Select = document.getElementById("matchP2");
-
-    if (dateInput) {
-        const today = new Date();
-        dateInput.value = `${today.getMonth() + 1}/${today.getDate()}`;
-    }
-
-    const scoreInputs = [g1p1, g1p2, g2p1, g2p2, g3p1, g3p2, p1Select, p2Select];
-    scoreInputs.forEach(input => {
-        if (input) {
-            input.addEventListener("input", updateMatchFormPreview);
-        }
-    });
-
-    if (matchForm) {
-        matchForm.addEventListener("submit", handleMatchFormSubmit);
-    }
-}
-
-function updateMatchFormPreview() {
-    const g1p1Val = parseInt(document.getElementById("g1p1").value, 10);
-    const g1p2Val = parseInt(document.getElementById("g1p2").value, 10);
-    const g2p1Val = parseInt(document.getElementById("g2p1").value, 10);
-    const g2p2Val = parseInt(document.getElementById("g2p2").value, 10);
-    const g3p1 = document.getElementById("g3p1");
-    const g3p2 = document.getElementById("g3p2");
-    const g3p1Val = parseInt(g3p1.value, 10);
-    const g3p2Val = parseInt(g3p2.value, 10);
-    
-    const p1Name = document.getElementById("matchP1").value || "Player 1";
-    const p2Name = document.getElementById("matchP2").value || "Player 2";
-    const previewBox = document.getElementById("matchPreviewBox");
-    const previewText = document.getElementById("previewText");
-
-    let p1Wins = 0;
-    let p2Wins = 0;
-
-    if (!isNaN(g1p1Val) && !isNaN(g1p2Val)) {
-        if (g1p1Val > g1p2Val) p1Wins++; else if (g1p2Val > g1p1Val) p2Wins++;
-    }
-    if (!isNaN(g2p1Val) && !isNaN(g2p2Val)) {
-        if (g2p1Val > g2p2Val) p1Wins++; else if (g2p2Val > g2p1Val) p2Wins++;
-    }
-
-    // Enable Game 3 tiebreaker if split 1-1
-    if (p1Wins === 1 && p2Wins === 1) {
-        g3p1.disabled = false;
-        g3p2.disabled = false;
-        g3p1.required = true;
-        g3p2.required = true;
-
-        if (!isNaN(g3p1Val) && !isNaN(g3p2Val)) {
-            if (g3p1Val > g3p2Val) p1Wins++; else if (g3p2Val > g3p1Val) p2Wins++;
-        }
-    } else {
-        g3p1.disabled = true;
-        g3p2.disabled = true;
-        g3p1.required = false;
-        g3p2.required = false;
-        g3p1.value = "";
-        g3p2.value = "";
-    }
-
-    if (p1Wins === 2 || p2Wins === 2) {
-        const winner = p1Wins === 2 ? p1Name : p2Name;
-        const setScore = p1Wins === 2 ? `${p1Wins} - ${p2Wins}` : `${p2Wins} - ${p1Wins}`;
-        previewText.innerHTML = `🏆 Outcome: <strong>${escapeHtml(winner)}</strong> wins <strong>${setScore}</strong> (Best of 3)`;
-        previewBox.style.display = "block";
-    } else {
-        previewBox.style.display = "none";
-    }
-}
-
-async function handleMatchFormSubmit(e) {
-    e.preventDefault();
-
-    const dateVal = document.getElementById("matchDate").value.trim();
-    const p1Name = document.getElementById("matchP1").value.trim();
-    const p2Name = document.getElementById("matchP2").value.trim();
-    const g1p1Val = document.getElementById("g1p1").value.trim();
-    const g1p2Val = document.getElementById("g1p2").value.trim();
-    const g2p1Val = document.getElementById("g2p1").value.trim();
-    const g2p2Val = document.getElementById("g2p2").value.trim();
-    const g3p1Val = document.getElementById("g3p1").value.trim();
-    const g3p2Val = document.getElementById("g3p2").value.trim();
-
-    if (!p1Name || !p2Name || p1Name === p2Name) {
-        showStatus("Please select two different players for the match.", "error");
-        return;
-    }
-
-    const p1Obj = players.find(p => p.name.toLowerCase() === p1Name.toLowerCase());
-    const p2Obj = players.find(p => p.name.toLowerCase() === p2Name.toLowerCase());
-    const p1Elo = p1Obj ? p1Obj.elo : 1000;
-    const p2Elo = p2Obj ? p2Obj.elo : 1000;
-
-    const payload = {
-        date: dateVal,
-        p1: p1Name,
-        p2: p2Name,
-        g1p1: g1p1Val,
-        g1p2: g1p2Val,
-        g2p1: g2p1Val,
-        g2p2: g2p2Val,
-        g3p1: g3p1Val,
-        g3p2: g3p2Val,
-        p1Elo,
-        p2Elo
-    };
-
-    showStatus("Submitting match...", "info");
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/matches`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.match) {
-                pendingServerMatches.push(result.match);
-            }
-        } else {
-            throw new Error("API response error");
-        }
-    } catch (err) {
-        console.warn("API POST failed, using local match creation fallback:", err);
-        const createdMatch = createLocalBestOfThreeMatch(payload);
-        pendingServerMatches.push(createdMatch);
-    }
-
-    saveServerMatches(pendingServerMatches);
-
-    const unloggedMatches = pendingServerMatches.filter(m => m.status === 'unlogged');
-    const combinedMatches = [...sheetMatches, ...unloggedMatches];
-    players = enrichPlayersWithStats(players, combinedMatches);
-
-    updateUI();
-    document.getElementById("recordMatchForm").reset();
-    document.getElementById("matchPreviewBox").style.display = "none";
-
-    showStatus(`Match recorded successfully! Logged internally as "unlogged".`, "success");
-}
-
-function createLocalBestOfThreeMatch(data) {
-    const { p1, p2, g1p1, g1p2, g2p1, g2p2, g3p1, g3p2, date, p1Elo, p2Elo } = data;
-    
-    let p1Wins = 0;
-    let p2Wins = 0;
-    const gameArr = [];
-
-    const v1_1 = parseInt(g1p1, 10);
-    const v1_2 = parseInt(g1p2, 10);
-    if (v1_1 > v1_2) p1Wins++; else p2Wins++;
-    gameArr.push(`${v1_1}-${v1_2}`);
-
-    const v2_1 = parseInt(g2p1, 10);
-    const v2_2 = parseInt(g2p2, 10);
-    if (v2_1 > v2_2) p1Wins++; else p2Wins++;
-    gameArr.push(`${v2_1}-${v2_2}`);
-
-    if (p1Wins === 1 && p2Wins === 1) {
-        const v3_1 = parseInt(g3p1, 10);
-        const v3_2 = parseInt(g3p2, 10);
-        if (v3_1 > v3_2) p1Wins++; else p2Wins++;
-        gameArr.push(`${v3_1}-${v3_2}`);
-    }
-
-    const isP1Winner = p1Wins === 2;
-    const winner = isP1Winner ? p1 : p2;
-    const loser = isP1Winner ? p2 : p1;
-    const scoreDisplay = isP1Winner ? `${p1Wins} - ${p2Wins}` : `${p2Wins} - ${p1Wins}`;
-
-    const r1 = parseInt(p1Elo, 10) || 1000;
-    const r2 = parseInt(p2Elo, 10) || 1000;
-    const isUpset = (isP1Winner && r1 < r2) || (!isP1Winner && r2 < r1);
-
-    return {
-        id: 'match_' + Date.now(),
-        date: date || '10/7',
-        p1,
-        p2,
-        winner,
-        loser,
-        score: scoreDisplay,
-        gameScores: gameArr.join(', '),
-        status: 'unlogged',
-        isUpset,
-        eloChange: '+20 / -20',
-        createdAt: new Date().toISOString()
-    };
-}
-
-function populatePlayerDropdowns(playerList) {
-    const p1Select = document.getElementById("matchP1");
-    const p2Select = document.getElementById("matchP2");
-    if (!p1Select || !p2Select) return;
-
-    const selectedP1 = p1Select.value;
-    const selectedP2 = p2Select.value;
-
-    p1Select.innerHTML = `<option value="">Select Player 1...</option>`;
-    p2Select.innerHTML = `<option value="">Select Player 2...</option>`;
-
-    playerList.forEach(p => {
-        const opt1 = document.createElement("option");
-        opt1.value = p.name;
-        opt1.textContent = `${p.name} (${p.elo})`;
-        p1Select.appendChild(opt1);
-
-        const opt2 = document.createElement("option");
-        opt2.value = p.name;
-        opt2.textContent = `${p.name} (${p.elo})`;
-        p2Select.appendChild(opt2);
-    });
-
-    p1Select.value = selectedP1;
-    p2Select.value = selectedP2;
-}
-
-// Parse Ratings Sheet CSV
+// Parse Ratings Sheet CSV (Rank,P,Rating,show)
 function parseRatingsCsv(csvText) {
     const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== "");
     if (lines.length < 2) return [];
@@ -423,6 +159,7 @@ function parseMatchLogCsv(csvText) {
 
     const matchesList = [];
 
+    // Rows start from line index 2 (row 3 of CSV)
     for (let i = 2; i < lines.length; i++) {
         const row = parseCsvRow(lines[i]);
         if (row.length < 4) continue;
@@ -438,6 +175,7 @@ function parseMatchLogCsv(csvText) {
         const winnerName = isP1Winner ? p1 : p2;
         const loserName = isP1Winner ? p2 : p1;
 
+        // Scores calculation
         const g1P1 = parseInt(row[4], 10);
         const g1P2 = parseInt(row[5], 10);
         const g2P1 = parseInt(row[6], 10);
@@ -470,14 +208,13 @@ function parseMatchLogCsv(csvText) {
         const eloChange = ptDiff > 0 ? `+${ptDiff} / -${ptDiff}` : "";
 
         matchesList.push({
-            id: 'sheet_' + i,
+            id: i,
             date,
             p1,
             p2,
             winner: winnerName,
             loser: loserName,
             score: scoreDisplay,
-            status: 'logged',
             isUpset,
             eloChange,
             p1Pre: row[10],
@@ -490,6 +227,7 @@ function parseMatchLogCsv(csvText) {
     return matchesList;
 }
 
+// Calculate wins, losses, and recent form per player from match log
 function enrichPlayersWithStats(playerList, matchLog) {
     const playerMap = {};
 
@@ -498,10 +236,11 @@ function enrichPlayersWithStats(playerList, matchLog) {
             ...p,
             wins: 0,
             losses: 0,
-            form: []
+            form: [] // stores 'W' or 'L' for recent matches
         };
     });
 
+    // Process matches in chronological order
     matchLog.forEach(match => {
         const winnerKey = match.winner.toLowerCase();
         const loserKey = match.loser.toLowerCase();
@@ -510,6 +249,7 @@ function enrichPlayersWithStats(playerList, matchLog) {
             playerMap[winnerKey].wins++;
             playerMap[winnerKey].form.push("W");
         } else {
+            // Player in match log not in ratings list yet
             playerMap[winnerKey] = {
                 rank: 99,
                 name: match.winner,
@@ -535,6 +275,7 @@ function enrichPlayersWithStats(playerList, matchLog) {
         }
     });
 
+    // Extract last 5 games for form
     const enrichedList = Object.values(playerMap).map(p => {
         const recentForm = p.form.slice(-5);
         return {
@@ -543,6 +284,7 @@ function enrichPlayersWithStats(playerList, matchLog) {
         };
     });
 
+    // Sort by official rank or ELO
     enrichedList.sort((a, b) => {
         if (a.rank !== b.rank) return a.rank - b.rank;
         return b.elo - a.elo;
@@ -553,6 +295,7 @@ function enrichPlayersWithStats(playerList, matchLog) {
     return enrichedList;
 }
 
+// Standard CSV line parser handling quotes
 function parseCsvRow(rowText) {
     const result = [];
     let insideQuotes = false;
@@ -577,7 +320,7 @@ function parseCsvRow(rowText) {
 function updateUI() {
     renderStatsSummary();
     renderLeaderboard(players);
-    renderMatchHistory();
+    renderMatchHistory(matches);
 }
 
 function renderStatsSummary() {
@@ -585,10 +328,8 @@ function renderStatsSummary() {
     const totalMatchesEl = document.getElementById("statTotalMatches");
     const topPlayerEl = document.getElementById("statTopPlayer");
 
-    const unloggedCount = pendingServerMatches.filter(m => m.status === 'unlogged').length;
-
     if (totalPlayersEl) totalPlayersEl.textContent = players.length;
-    if (totalMatchesEl) totalMatchesEl.textContent = `${sheetMatches.length + unloggedCount}`;
+    if (totalMatchesEl) totalMatchesEl.textContent = matches.length;
 
     if (topPlayerEl) {
         const top = players.length > 0 ? players[0] : null;
@@ -603,13 +344,14 @@ function renderLeaderboard(dataList) {
     tbody.innerHTML = "";
 
     if (dataList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No players found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No players found matching your criteria.</td></tr>`;
         return;
     }
 
     dataList.forEach(player => {
         const tr = document.createElement("tr");
 
+        // Rank Badge
         let rankBadge = `#${player.rank}`;
         let rankClass = "rank-normal";
         if (player.rank === 1) {
@@ -623,9 +365,11 @@ function renderLeaderboard(dataList) {
             rankClass = "rank-bronze";
         }
 
+        // Win Rate %
         const totalGames = player.wins + player.losses;
         const winRate = totalGames > 0 ? Math.round((player.wins / totalGames) * 100) : 0;
 
+        // Form pills
         const formHtml = player.form.map(f => {
             const isWin = f.toUpperCase() === "W";
             if (f === "-") return `<span class="form-pill neutral">-</span>`;
@@ -650,28 +394,25 @@ function renderLeaderboard(dataList) {
     });
 }
 
-function renderMatchHistory() {
+function renderMatchHistory(matchList) {
     const matchContainer = document.getElementById("matchHistoryList");
     if (!matchContainer) return;
 
     matchContainer.innerHTML = "";
 
-    const unloggedList = pendingServerMatches.filter(m => m.status === 'unlogged');
-    const allMatchesCombined = [...unloggedList.reverse(), ...[...sheetMatches].reverse()];
-
-    if (allMatchesCombined.length === 0) {
-        matchContainer.innerHTML = `<div class="empty-state">No matches recorded.</div>`;
+    if (matchList.length === 0) {
+        matchContainer.innerHTML = `<div class="empty-state">No recent matches recorded.</div>`;
         return;
     }
 
-    allMatchesCombined.forEach(match => {
-        const card = document.createElement("div");
-        const isUnlogged = match.status === 'unlogged';
+    // Display newest matches first
+    const reversedMatches = [...matchList].reverse();
 
-        card.className = `match-card ${isUnlogged ? 'match-unlogged' : ''}`;
+    reversedMatches.forEach(match => {
+        const card = document.createElement("div");
+        card.className = "match-card";
 
         const upsetBadge = match.isUpset ? `<span class="upset-tag">🔥 UPSET</span>` : "";
-        const statusBadge = isUnlogged ? `<span class="status-tag pending">⏳ Pending</span>` : `<span class="status-tag logged">✅ Logged</span>`;
 
         card.innerHTML = `
             <div class="match-details">
@@ -679,15 +420,13 @@ function renderMatchHistory() {
                 <span class="match-vs">vs</span>
                 <span class="match-loser">${escapeHtml(match.loser)}</span>
                 ${upsetBadge}
-                ${statusBadge}
             </div>
             <div class="match-meta">
                 <span class="match-score">Score: ${escapeHtml(match.score)}</span>
-                <span class="match-elo">${escapeHtml(match.eloChange || '+20 / -20')}</span>
+                <span class="match-elo">${escapeHtml(match.eloChange)}</span>
                 <span class="match-date">${escapeHtml(match.date)}</span>
             </div>
         `;
-
         matchContainer.appendChild(card);
     });
 }
